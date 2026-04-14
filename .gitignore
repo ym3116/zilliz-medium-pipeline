@@ -1,0 +1,18 @@
+# Secrets and credentials
+config/feishu-config.json
+*.secret.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output (optional: remove if you want to track drafts)
+# output/drafts/

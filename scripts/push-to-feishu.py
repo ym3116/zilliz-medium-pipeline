@@ -1,0 +1,354 @@
+"""
+push-to-feishu.py
+
+Takes a record_id, markdown content string, doc title, and persona name.
+Does the following in order:
+  1. Creates a new Feishu Doc inside the configured output folder.
+  2. Writes the markdown content into the doc as structured blocks.
+  3. Updates the Bitable row:
+       - Sets "Blog Draft" to the new doc URL
+       - Sets "Status" to "Drafting"
+       - Sets "Target Account" to the persona name
+
+Usage (programmatic — called from the pipeline, not directly):
+    from push_to_feishu import push_article
+    doc_url = push_article(record_id, markdown_content, title, persona)
+"""
+
+import json
+import os
+import re
+import sys
+import time
+
+import requests
+
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "../config/feishu-config.json")
+
+# Feishu Docs block type constants
+BLOCK_TEXT = 2
+BLOCK_H1 = 3
+BLOCK_H2 = 4
+BLOCK_H3 = 5
+BLOCK_CODE = 12
+BLOCK_BULLET = 15
+BLOCK_ORDERED = 16
+
+# Feishu code block language: 1 = PlainText, 23 = Python, 49 = Go, etc.
+LANG_MAP = {
+    "python": 23, "py": 23,
+    "go": 49, "golang": 49,
+    "javascript": 4, "js": 4,
+    "typescript": 4, "ts": 4,
+    "bash": 2, "sh": 2, "shell": 2,
+    "sql": 27,
+    "json": 13,
+    "yaml": 35, "yml": 35,
+}
+
+
+def load_config():
+    with open(CONFIG_PATH) as f:
+        return json.load(f)
+
+
+def get_tenant_access_token(config):
+    resp = requests.post(
+        "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+        json={"app_id": config["app_id"], "app_secret": config["app_secret"]},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("code") != 0:
+        raise RuntimeError(f"Failed to get access token: {data}")
+    return data["tenant_access_token"]
+
+
+# ---------------------------------------------------------------------------
+# Markdown → Feishu blocks
+# ---------------------------------------------------------------------------
+
+def parse_inline(text: str) -> list:
+    """
+    Convert inline markdown (links, bold, inline code) into Feishu text_run
+    element objects. Handles [text](url), **bold**, and `code`.
+    """
+    elements = []
+    # Combined pattern: links, bold, inline code
+    pattern = re.compile(
+        r"\[(?P<link_text>[^\]]+)\]\((?P<link_url>[^)]+)\)"  # [text](url)
+        r"|\*\*(?P<bold>[^*]+)\*\*"                           # **bold**
+        r"|`(?P<code>[^`]+)`"                                 # `code`
+    )
+    last_end = 0
+
+    for match in pattern.finditer(text):
+        # Plain text before this match
+        if match.start() > last_end:
+            elements.append({"text_run": {"content": text[last_end:match.start()]}})
+
+        if match.group("link_text"):
+            elements.append({
+                "text_run": {
+                    "content": match.group("link_text"),
+                    "text_element_style": {
+                        "link": {"url": match.group("link_url")}
+                    },
+                }
+            })
+        elif match.group("bold"):
+            elements.append({
+                "text_run": {
+                    "content": match.group("bold"),
+                    "text_element_style": {"bold": True},
+                }
+            })
+        elif match.group("code"):
+            elements.append({
+                "text_run": {
+                    "content": match.group("code"),
+                    "text_element_style": {"inline_code": True},
+                }
+            })
+
+        last_end = match.end()
+
+    # Trailing plain text
+    if last_end < len(text):
+        elements.append({"text_run": {"content": text[last_end:]}})
+
+    return elements or [{"text_run": {"content": text}}]
+
+
+def make_block(block_type: int, key: str, elements: list, extra_style: dict = None) -> dict:
+    block = {
+        "block_type": block_type,
+        key: {
+            "elements": elements,
+            "style": extra_style or {},
+        },
+    }
+    return block
+
+
+def make_code_block(code: str, lang: str) -> dict:
+    lang_id = LANG_MAP.get(lang.lower(), 1)
+    return {
+        "block_type": BLOCK_CODE,
+        "code": {
+            "elements": [{"text_run": {"content": code}}],
+            "style": {"language": lang_id, "wrap": True},
+        },
+    }
+
+
+def markdown_to_blocks(md_content: str) -> list:
+    """Convert a markdown string to a list of Feishu document block definitions."""
+    blocks = []
+    lines = md_content.split("\n")
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+
+        # Fenced code block
+        if line.startswith("```"):
+            lang = line[3:].strip() or "plaintext"
+            code_lines = []
+            i += 1
+            while i < len(lines) and not lines[i].startswith("```"):
+                code_lines.append(lines[i])
+                i += 1
+            blocks.append(make_code_block("\n".join(code_lines), lang))
+
+        # Heading 1
+        elif re.match(r"^# [^#]", line):
+            text = line[2:].strip()
+            blocks.append(make_block(BLOCK_H1, "heading1", parse_inline(text)))
+
+        # Heading 2
+        elif re.match(r"^## [^#]", line):
+            text = line[3:].strip()
+            blocks.append(make_block(BLOCK_H2, "heading2", parse_inline(text)))
+
+        # Heading 3
+        elif re.match(r"^### ", line):
+            text = line[4:].strip()
+            blocks.append(make_block(BLOCK_H3, "heading3", parse_inline(text)))
+
+        # Bullet list item
+        elif re.match(r"^[-*] ", line):
+            text = line[2:].strip()
+            blocks.append(make_block(BLOCK_BULLET, "bullet", parse_inline(text)))
+
+        # Numbered list item
+        elif re.match(r"^\d+\. ", line):
+            text = re.sub(r"^\d+\. ", "", line).strip()
+            blocks.append(make_block(BLOCK_ORDERED, "ordered", parse_inline(text)))
+
+        # Empty line: skip
+        elif line.strip() == "":
+            pass
+
+        # Horizontal rule: skip
+        elif re.match(r"^[-*_]{3,}$", line.strip()):
+            pass
+
+        # Regular paragraph
+        else:
+            blocks.append(make_block(BLOCK_TEXT, "text", parse_inline(line)))
+
+        i += 1
+
+    return blocks
+
+
+# ---------------------------------------------------------------------------
+# Feishu API calls
+# ---------------------------------------------------------------------------
+
+def create_feishu_doc(token: str, folder_token: str, title: str) -> str:
+    """
+    Create a new Feishu Doc in the specified folder.
+
+    Returns:
+        str: The new document's document_id.
+    """
+    resp = requests.post(
+        "https://open.feishu.cn/open-apis/docx/v1/documents",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"folder_token": folder_token, "title": title},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("code") != 0:
+        raise RuntimeError(f"Failed to create doc: {data}")
+    return data["data"]["document"]["document_id"]
+
+
+def write_blocks_to_doc(token: str, document_id: str, blocks: list):
+    """
+    Write blocks to the root of a Feishu Doc, in batches of 50.
+    The root block_id equals the document_id.
+    """
+    url = (
+        f"https://open.feishu.cn/open-apis/docx/v1"
+        f"/documents/{document_id}/blocks/{document_id}/children"
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+    batch_size = 50
+
+    for start in range(0, len(blocks), batch_size):
+        batch = blocks[start : start + batch_size]
+        resp = requests.post(
+            url,
+            headers=headers,
+            json={"children": batch, "index": start},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("code") != 0:
+            raise RuntimeError(f"Failed to write blocks (batch {start}): {data}")
+        # Brief pause to avoid rate limiting on large docs
+        if start + batch_size < len(blocks):
+            time.sleep(0.3)
+
+
+def update_bitable_record(
+    token: str,
+    config: dict,
+    record_id: str,
+    doc_url: str,
+    persona: str,
+):
+    """
+    Update the Bitable row: set Blog Draft URL, Status → Drafting,
+    Target Account → persona name.
+    """
+    app_token = config["bitable_app_token"]
+    table_id = config["bitable_table_id"]
+    url = (
+        f"https://open.feishu.cn/open-apis/bitable/v1"
+        f"/apps/{app_token}/tables/{table_id}/records/{record_id}"
+    )
+    payload = {
+        "fields": {
+            "Blog Draft": [{"text": doc_url, "link": doc_url}],
+            "Status": "Drafting",
+            "Target Account": persona,
+        }
+    }
+    resp = requests.put(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("code") != 0:
+        raise RuntimeError(f"Failed to update Bitable record: {data}")
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+def push_article(
+    record_id: str,
+    markdown_content: str,
+    doc_title: str,
+    persona: str,
+) -> str:
+    """
+    Full pipeline step: create Feishu Doc, write content, update Bitable row.
+
+    Args:
+        record_id:        Bitable record ID of the source row.
+        markdown_content: Rewritten article in markdown format.
+        doc_title:        Title for the new Feishu Doc.
+        persona:          One of "Alex Chen", "Priya Singh", "Carlos Martinez".
+
+    Returns:
+        str: The URL of the created Feishu Doc.
+    """
+    config = load_config()
+    token = get_tenant_access_token(config)
+    folder_token = config["output_folder_token"]
+    base_url = config.get("base_url", "https://bytedance.feishu.cn").rstrip("/")
+
+    print(f"  Creating Feishu Doc: {doc_title!r}")
+    document_id = create_feishu_doc(token, folder_token, doc_title)
+    doc_url = f"{base_url}/docx/{document_id}"
+    print(f"  Doc created: {doc_url}")
+
+    print("  Writing content blocks...")
+    blocks = markdown_to_blocks(markdown_content)
+    write_blocks_to_doc(token, document_id, blocks)
+    print(f"  Wrote {len(blocks)} blocks.")
+
+    print(f"  Updating Bitable record {record_id}...")
+    update_bitable_record(token, config, record_id, doc_url, persona)
+    print("  Bitable row updated (Status → Drafting).")
+
+    return doc_url
+
+
+if __name__ == "__main__":
+    # Quick smoke-test: python push-to-feishu.py <record_id> <md_file> "<title>" "<persona>"
+    if len(sys.argv) != 5:
+        print(
+            "Usage: python push-to-feishu.py "
+            "<record_id> <markdown_file> <title> <persona>"
+        )
+        sys.exit(1)
+
+    rid, md_path, title, persona_name = sys.argv[1:]
+    with open(md_path) as f:
+        content = f.read()
+
+    url = push_article(rid, content, title, persona_name)
+    print(f"\nDone. Doc URL: {url}")
