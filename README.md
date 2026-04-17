@@ -3,6 +3,8 @@
 An automated pipeline for rewriting Medium articles in the voice of Zilliz KOC (Key Opinion Creator) personas, inserting backlinks, and publishing the results to Feishu Docs.
 
 ---
+## Setup步骤&使用方法
+见文档：[Medium自动化Rewrite教程](https://zilliverse.feishu.cn/wiki/XxVtwOM9miYL5WkkTFFcQdrmn67?from=from_copylink)
 
 ## Pipeline Overview
 
