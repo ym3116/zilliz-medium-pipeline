@@ -133,12 +133,15 @@ def make_block(block_type: int, key: str, elements: list, extra_style: dict = No
 
 
 def make_code_block(code: str, lang: str) -> dict:
-    lang_id = LANG_MAP.get(lang.lower(), 1)
+    # The Feishu Create Block API does not support code blocks (type 12).
+    # Workaround: render code as a text block with inline_code styling.
     return {
-        "block_type": BLOCK_CODE,
-        "code": {
-            "elements": [{"text_run": {"content": code}}],
-            "style": {"language": lang_id, "wrap": True},
+        "block_type": BLOCK_TEXT,
+        "text": {
+            "elements": [
+                {"text_run": {"content": code, "text_element_style": {"inline_code": True}}}
+            ],
+            "style": {},
         },
     }
 
@@ -257,6 +260,29 @@ def write_blocks_to_doc(token: str, document_id: str, blocks: list):
             time.sleep(0.3)
 
 
+def grant_org_edit_access(token: str, document_id: str):
+    """
+    Set the doc's link-share permission to 'tenant_editable' so everyone
+    in the Zilliz org can edit without an explicit invite.
+    """
+    resp = requests.patch(
+        f"https://open.feishu.cn/open-apis/drive/v1/permissions/{document_id}/public?type=docx",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "external_access_entity": "open",
+            "security_entity": "anyone_can_view",
+            "comment_entity": "anyone_can_view",
+            "share_entity": "anyone",
+            "link_share_entity": "tenant_editable",
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("code") != 0:
+        raise RuntimeError(f"Failed to set doc permissions: {data}")
+
+
 def update_bitable_record(
     token: str,
     config: dict,
@@ -276,7 +302,7 @@ def update_bitable_record(
     )
     payload = {
         "fields": {
-            "Blog Draft": [{"text": doc_url, "link": doc_url}],
+            "Blog Draft": doc_url,
             "Status": "Drafting",
             "Target Account": persona,
         }
@@ -329,6 +355,10 @@ def push_article(
     blocks = markdown_to_blocks(markdown_content)
     write_blocks_to_doc(token, document_id, blocks)
     print(f"  Wrote {len(blocks)} blocks.")
+
+    print("  Granting org-wide edit access...")
+    grant_org_edit_access(token, document_id)
+    print("  Permissions set (tenant_editable).")
 
     print(f"  Updating Bitable record {record_id}...")
     update_bitable_record(token, config, record_id, doc_url, persona)

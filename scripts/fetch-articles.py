@@ -38,7 +38,9 @@ def get_tenant_access_token(config):
 
 
 def extract_url(field_value):
-    """Extract a plain URL string from a Feishu URL/link field (array of objects or plain string)."""
+    """Extract a plain URL string from a Feishu URL/link field (dict, array of objects, or plain string)."""
+    if isinstance(field_value, dict):
+        return field_value.get("link", "")
     if isinstance(field_value, list) and field_value:
         return field_value[0].get("link", "")
     if isinstance(field_value, str):

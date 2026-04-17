@@ -61,7 +61,7 @@ Call `scripts/push-to-feishu.py` (via `push_article()`) with:
 - `persona` — the assigned persona name
 
 This will:
-- Create a new Feishu Doc in folder `RxtJfYyjPlJqTVdP3ISc98gDnLh`
+- Create a new Feishu Doc in folder `OmH3fQT3QlEx1ldBuDUctQlrnId` (SEO Reposts)
 - Write the markdown content as structured blocks
 - Update the Bitable row: `Blog Draft` → doc URL, `Status` → `Drafting`, `Target Account` → persona name
 
@@ -111,6 +111,17 @@ All URLs from `config/link-rules.md`. Add `?utm_campaign=mediumkoc`. Link first 
 | `output/drafts/` | Local markdown drafts (before push) |
 
 ---
+
+## Autonomy Rules
+
+When the user says **"process N articles"** (or any variant of the trigger phrase), execute the **entire pipeline end-to-end without pausing for confirmation**. Do not ask "allow this?" or "should I proceed?" at any step. The user grants blanket permission for all tool calls, file writes, API requests, and script executions needed to complete the pipeline. Just do the work and report the summary at the end.
+
+## Memory Maintenance
+
+After every pipeline run (even a single article), update the `.claude-memory/` files:
+- Add any new lessons learned (API quirks, bug fixes, workarounds).
+- Correct or delete any memory entries that turned out to be wrong.
+- Keep `MEMORY.md` index in sync.
 
 ## Safety Rules
 - Never commit `feishu-config.json` or `*.secret.*` files.

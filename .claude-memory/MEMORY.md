@@ -1,0 +1,3 @@
+- [Article fetching methods](feedback_fetching_articles.md) — Use Python requests, not WebFetch; milvus.io URLs redirect-loop with WebFetch
+- [Feishu doc writing quirks](feedback_feishu_doc_writing.md) — Code blocks (type 12) always fail; use inline_code text blocks; Blog Draft is a text field
+- [General pipeline tips](feedback_pipeline_general.md) — Draft reuse, persona pre-assignment, backlink checklist, Feishu base_url and folder management
