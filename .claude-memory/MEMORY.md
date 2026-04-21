@@ -1,3 +1,5 @@
-- [Article fetching methods](feedback_fetching_articles.md) — Use Python requests, not WebFetch; milvus.io URLs redirect-loop with WebFetch
-- [Feishu doc writing quirks](feedback_feishu_doc_writing.md) — Code blocks (type 12) always fail; use inline_code text blocks; Blog Draft is a text field
-- [General pipeline tips](feedback_pipeline_general.md) — Draft reuse, persona pre-assignment, backlink checklist, Feishu base_url and folder management
+# Memory Index
+
+- [Feishu API quirks](feishu_api.md) — block types that work/fail, image embedding broken for bots, Bitable field formats
+- [Cover image pipeline](cover_image.md) — OpenRouter model, Pillow 1280×1024 post-processing, output/covers/, NOT in Feishu
+- [Pipeline execution rules](pipeline.md) — article fetching, persona rules, backlink rules, no local drafts, output folder
