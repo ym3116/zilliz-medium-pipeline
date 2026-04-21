@@ -32,7 +32,7 @@ BLOCK_H2 = 4
 BLOCK_H3 = 5
 BLOCK_CODE = 12
 BLOCK_BULLET = 15
-BLOCK_ORDERED = 16
+BLOCK_ORDERED = 17
 
 # Feishu code block language: 1 = PlainText, 23 = Python, 49 = Go, etc.
 LANG_MAP = {
@@ -180,15 +180,21 @@ def markdown_to_blocks(md_content: str) -> list:
             text = line[4:].strip()
             blocks.append(make_block(BLOCK_H3, "heading3", parse_inline(text)))
 
-        # Bullet list item
+        # Bullet list item — render as text with bullet prefix (API doesn't accept block_type 15)
         elif re.match(r"^[-*] ", line):
             text = line[2:].strip()
-            blocks.append(make_block(BLOCK_BULLET, "bullet", parse_inline(text)))
+            elements = parse_inline(text)
+            # Prepend bullet symbol as plain text
+            elements.insert(0, {"text_run": {"content": "• "}})
+            blocks.append(make_block(BLOCK_TEXT, "text", elements))
 
-        # Numbered list item
+        # Numbered list item — render as text with number prefix
         elif re.match(r"^\d+\. ", line):
+            num = re.match(r"^(\d+)\. ", line).group(1)
             text = re.sub(r"^\d+\. ", "", line).strip()
-            blocks.append(make_block(BLOCK_ORDERED, "ordered", parse_inline(text)))
+            elements = parse_inline(text)
+            elements.insert(0, {"text_run": {"content": f"{num}. "}})
+            blocks.append(make_block(BLOCK_TEXT, "text", elements))
 
         # Empty line: skip
         elif line.strip() == "":
