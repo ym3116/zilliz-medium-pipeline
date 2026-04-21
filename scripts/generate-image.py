@@ -44,7 +44,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 PERSONA_STYLE_FILES = {
     "Alex Chen":       "alex-chen.md",
     "Priya Singh":     "priya-singh.md",
-    "Carlos Martinez": "carlos-martinez.md",
+    "Carlos Martínez": "carlos-martinez.md",
 }
 
 

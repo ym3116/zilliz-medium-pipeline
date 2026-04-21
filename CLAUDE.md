@@ -14,7 +14,7 @@ Take only the **first N rows** returned.
 
 ### Step 2 — Classify Personas
 Run `scripts/classify.py` on those N rows.
-- Assign each article to exactly one of: **Alex Chen**, **Priya Singh**, **Carlos Martinez**.
+- Assign each article to exactly one of: **Alex Chen**, **Priya Singh**, **Carlos Martínez**.
 - **Never assign James** or any other persona not in that list.
 - Balance assignments: check existing counts in the full table before deciding, so no persona is over-represented.
 
@@ -29,7 +29,7 @@ Fetch the full article text from `source_link`. Use a browser-like User-Agent he
 Read `personas/<persona>.md` matching the assigned persona:
 - Alex Chen → `personas/alex-chen.md`
 - Priya Singh → `personas/priya-singh.md`
-- Carlos Martinez → `personas/carlos-martinez.md`
+- Carlos Martínez → `personas/carlos-martinez.md`
 
 **3c. Load backlink rules**
 Read `config/link-rules.md` for the keyword → URL mapping table.
@@ -74,7 +74,7 @@ Processed 3 articles:
      Doc URL: https://...feishu.cn/docx/...
   2. [record_id] "Doc Title" → Priya Singh
      Doc URL: https://...
-  3. [record_id] "Doc Title" → Carlos Martinez
+  3. [record_id] "Doc Title" → Carlos Martínez
      Doc URL: https://...
 ```
 
@@ -86,7 +86,7 @@ Processed 3 articles:
 |---|---|
 | **Alex Chen** | Engineering deep-dives, database internals, benchmarks, indexing algorithms, C++/Go, performance tuning |
 | **Priya Singh** | RAG pipelines, LLM use cases, LangChain/LlamaIndex, tutorials, applied AI, embedding workflows |
-| **Carlos Martinez** | Kafka/Kubernetes/ETL infrastructure, DevOps, enterprise deployments, data platform architecture |
+| **Carlos Martínez** | Kafka/Kubernetes/ETL infrastructure, DevOps, enterprise deployments, data platform architecture |
 
 ---
 

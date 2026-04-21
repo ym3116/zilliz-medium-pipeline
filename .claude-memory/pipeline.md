@@ -19,7 +19,7 @@ text = soup.get_text(separator="\n", strip=True)
 
 ## Persona rules
 
-- Valid personas: **Alex Chen, Priya Singh, Carlos Martinez** only. Never assign James or any other name.
+- Valid personas: **Alex Chen, Priya Singh, Carlos Martínez** only. Never assign James or any other name.
 - If a Bitable row already has a valid `Target Account`, accept it — skip re-classification.
 - If it says "James" or anything else, re-classify.
 

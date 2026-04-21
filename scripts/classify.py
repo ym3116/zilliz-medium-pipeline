@@ -3,7 +3,7 @@ classify.py
 
 Takes a list of TODO rows (from fetch-articles.py), fetches each article's
 content, and assigns the best-fit persona — keeping the total count balanced
-across Alex Chen, Priya Singh, and Carlos Martinez.
+across Alex Chen, Priya Singh, and Carlos Martínez.
 
 Current persona counts are read from the full Bitable table (all rows, not
 just TODO) so balance accounts for already-processed articles.
@@ -21,7 +21,7 @@ import requests
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "../config/feishu-config.json")
 
-PERSONAS = ["Alex Chen", "Priya Singh", "Carlos Martinez"]
+PERSONAS = ["Alex Chen", "Priya Singh", "Carlos Martínez"]
 
 # Keyword sets that signal affinity for each persona.
 # Longer keyword lists = finer signal; keep them distinct.
@@ -44,7 +44,7 @@ PERSONA_KEYWORDS = {
         "fine-tuning", "inference", "prompt engineering", "context window",
         "chunking", "vector store", "retrieval", "generation",
     ],
-    "Carlos Martinez": [
+    "Carlos Martínez": [
         "enterprise", "business value", "ROI", "cost savings",
         "kafka", "flink", "kubernetes", "k8s", "ETL", "data pipeline",
         "devops", "infrastructure", "deployment", "production",
@@ -91,7 +91,7 @@ def get_existing_persona_counts(config=None):
     assigned to each persona (via Target Account field).
 
     Returns:
-        dict: {"Alex Chen": int, "Priya Singh": int, "Carlos Martinez": int}
+        dict: {"Alex Chen": int, "Priya Singh": int, "Carlos Martínez": int}
     """
     if config is None:
         config = load_config()

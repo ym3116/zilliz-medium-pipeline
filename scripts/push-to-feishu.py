@@ -368,7 +368,7 @@ def push_article(
         record_id:        Bitable record ID of the source row.
         markdown_content: Rewritten article in markdown format.
         doc_title:        Title for the new Feishu Doc.
-        persona:          One of "Alex Chen", "Priya Singh", "Carlos Martinez".
+        persona:          One of "Alex Chen", "Priya Singh", "Carlos Martínez".
         generate_cover:   If True (default), generate a cover image and save it
                           to output/covers/<title>.png. Requires
                           openrouter_api_key in config/feishu-config.json.

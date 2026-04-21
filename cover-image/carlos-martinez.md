@@ -1,4 +1,4 @@
-# Cover Image Style — Carlos Martinez
+# Cover Image Style — Carlos Martínez
 
 ## General Constraints (apply to all personas)
 - Landscape format, exactly 10:8 aspect ratio (e.g., 1280×1024 pixels)
@@ -6,7 +6,7 @@
 - No readable brand names or product names
 - Comic style with high-tech feel, rich visual elements
 
-## Carlos Martinez Visual Identity
+## Carlos Martínez Visual Identity
 
 **Color Palette**
 - Primary: near-black charcoal (#0D1117), terminal green (#00FF41), amber alert (#FFA500)
