@@ -14,5 +14,5 @@ env/
 .DS_Store
 Thumbs.db
 
-# Output (optional: remove if you want to track drafts)
-# output/drafts/
+# Output
+output/covers/

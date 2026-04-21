@@ -4,8 +4,9 @@ push-to-feishu.py
 Takes a record_id, markdown content string, doc title, and persona name.
 Does the following in order:
   1. Creates a new Feishu Doc inside the configured output folder.
-  2. Writes the markdown content into the doc as structured blocks.
-  3. Updates the Bitable row:
+  2. Generates a cover image and saves it to output/covers/<title>.png.
+  3. Writes the markdown content into the doc as structured blocks.
+  4. Updates the Bitable row:
        - Sets "Blog Draft" to the new doc URL
        - Sets "Status" to "Drafting"
        - Sets "Target Account" to the persona name
@@ -13,6 +14,9 @@ Does the following in order:
 Usage (programmatic — called from the pipeline, not directly):
     from push_to_feishu import push_article
     doc_url = push_article(record_id, markdown_content, title, persona)
+
+Cover image generation requires openrouter_api_key in config/feishu-config.json.
+Pass generate_cover=False to skip image generation.
 """
 
 import json
@@ -24,6 +28,7 @@ import time
 import requests
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "../config/feishu-config.json")
+GENERATE_IMAGE_SCRIPT = os.path.join(os.path.dirname(__file__), "generate-image.py")
 
 # Feishu Docs block type constants
 BLOCK_TEXT = 2
@@ -326,6 +331,26 @@ def update_bitable_record(
 
 
 # ---------------------------------------------------------------------------
+# Cover image (saved locally)
+# ---------------------------------------------------------------------------
+
+def generate_and_save_cover(persona: str, article_title: str):
+    """
+    Generate a cover image via OpenRouter and save it to output/covers/<title>.png.
+    Returns the local file path, or None on failure.
+    """
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("generate_image", GENERATE_IMAGE_SCRIPT)
+        gen_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gen_mod)
+        return gen_mod.generate_cover_image(persona, article_title)
+    except Exception as e:
+        print(f"  Warning: cover image generation failed ({e}). Continuing without cover.")
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
@@ -334,6 +359,7 @@ def push_article(
     markdown_content: str,
     doc_title: str,
     persona: str,
+    generate_cover: bool = True,
 ) -> str:
     """
     Full pipeline step: create Feishu Doc, write content, update Bitable row.
@@ -343,6 +369,9 @@ def push_article(
         markdown_content: Rewritten article in markdown format.
         doc_title:        Title for the new Feishu Doc.
         persona:          One of "Alex Chen", "Priya Singh", "Carlos Martinez".
+        generate_cover:   If True (default), generate a cover image and save it
+                          to output/covers/<title>.png. Requires
+                          openrouter_api_key in config/feishu-config.json.
 
     Returns:
         str: The URL of the created Feishu Doc.
@@ -357,8 +386,17 @@ def push_article(
     doc_url = f"{base_url}/docx/{document_id}"
     print(f"  Doc created: {doc_url}")
 
-    print("  Writing content blocks...")
+    # Build content blocks
     blocks = markdown_to_blocks(markdown_content)
+
+    # Generate and save cover image locally
+    if generate_cover:
+        print("  Generating cover image...")
+        cover_path = generate_and_save_cover(persona, doc_title)
+        if cover_path:
+            print(f"  Cover image saved: {cover_path}")
+
+    print("  Writing content blocks...")
     write_blocks_to_doc(token, document_id, blocks)
     print(f"  Wrote {len(blocks)} blocks.")
 
